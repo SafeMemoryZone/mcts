@@ -17,13 +17,13 @@ struct Node {
 
   Node(Arena *arena);
   Node *CalculateBestMove(size_t iter_count);
-  static bool IsTerminal(Node *n);
+  bool IsTerminal();
 
 private:
   Node *GetBestChild();
   Node *FindBestLeafNode();
   void CreateChildren();
-  void Simulate();
+  void SimulateAndPropagate();
   double GetUcbScore();
 };
 #endif // NODE_HPP 

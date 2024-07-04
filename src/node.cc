@@ -37,6 +37,9 @@ Node *Node::FindBestLeafNode() {
 }
 
 void Node::CreateChildren() {
+  if(this->IsTerminal())
+    return;
+
   for (int row = 0; row < 3; ++row) {
     for (int col = 0; col < 3; ++col) {
       int position = row * 3 + col;
@@ -55,17 +58,14 @@ void Node::CreateChildren() {
   }
 }
 
-void Node::Simulate() {
+void Node::SimulateAndPropagate() {
   // TODO: implement
 }
 
 Node *Node::CalculateBestMove(size_t iter_count) {
   for (size_t i = 0; i < iter_count; i++) {
     Node *leaf = this->FindBestLeafNode();
-
-    if (!IsTerminal(leaf)) {
-      leaf->CreateChildren();
-    }
+    leaf->CreateChildren();
 
     if (leaf->child_count > 0) {
       std::random_device rd;
@@ -74,7 +74,10 @@ Node *Node::CalculateBestMove(size_t iter_count) {
 
       Node *chosen_leaf = leaf->children[dis(gen)];
 
-      chosen_leaf->Simulate();
+      chosen_leaf->SimulateAndPropagate();
+    }
+    else {
+      leaf->SimulateAndPropagate();
     }
   }
 
@@ -91,7 +94,7 @@ Node *Node::CalculateBestMove(size_t iter_count) {
   return best_node;
 }
 
-bool Node::IsTerminal(Node *n) {
+bool Node::IsTerminal() {
   // TODO: implement
   return false;
 }
