@@ -16,7 +16,7 @@ Node::Node(Arena *arena) {
 
 Node *Node::GetBestChild() {
   double best_score = -1;
-  Node* best_child = nullptr;
+  Node* best_child;
 
   for (auto i = 0; i < this->child_count; i++) {
     auto score = this->children[i]->GetUcbScore();
@@ -33,8 +33,7 @@ Node *Node::FindBestLeafNode() {
   if (this->child_count == 0)
     return this;
 
-  Node* best_child = this->GetBestChild();
-  return best_child ? best_child->FindBestLeafNode() : this;
+  return this->GetBestChild()->FindBestLeafNode();
 }
 
 void Node::CreateChildren() {
@@ -80,7 +79,7 @@ Node *Node::CalculateBestMove(size_t iter_count) {
   }
 
   int64_t best_eval = -1;
-  Node *best_node = nullptr;
+  Node *best_node;
 
   for (int i = 0; i < this->child_count; i++) {
     if (this->children[i]->eval > best_eval) {
@@ -92,7 +91,7 @@ Node *Node::CalculateBestMove(size_t iter_count) {
   return best_node;
 }
 
-static bool IsTerminal(Node *n) {
+bool Node::IsTerminal(Node *n) {
   // TODO: implement
   return false;
 }
