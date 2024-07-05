@@ -1,21 +1,25 @@
-#include "arena.hpp"
 #include "node.hpp"
 #include <cassert>
 #include <cfloat>
 #include <cmath>
+#include <iostream>
 #include <random>
+#include <vector>
 
-Node::Node(Arena *arena) {
-  this->arena = arena;
-  this->child_count = 0;
+Node::Node(std::deque<Node> *arena, bool is_ai_turn) {
+  this->eval = 0;
   this->visit_count = 0;
   this->win_count = 0;
-  this->eval = 0;
   this->parent = nullptr;
+  this->ai_board = 0;
+  this->enemy_board = 0;
+  this->child_count = 0;
+  this->arena = arena;
+  this->is_ai_turn = is_ai_turn;
 }
 
 Node *Node::GetBestChild() {
-  double best_score = -1;
+  double best_score = DBL_MIN;
   Node* best_child;
 
   for (auto i = 0; i < this->child_count; i++) {
@@ -36,52 +40,115 @@ Node *Node::FindBestLeafNode() {
   return this->GetBestChild()->FindBestLeafNode();
 }
 
+Node *Node::SearchEnemyMove(int move) {
+  this->CreateChildren();
+
+  for(int i = 0; i < this->child_count; i++) {
+    if(this->children[i]->enemy_board & (1 << move))
+      return this->children[i];
+  }
+  
+  assert(false);
+  return nullptr;
+}
+
 void Node::CreateChildren() {
-  if(this->IsTerminal())
+  if(this->GetWinner() || this->child_count > 0)
     return;
 
-  for (int row = 0; row < 3; ++row) {
-    for (int col = 0; col < 3; ++col) {
-      int position = row * 3 + col;
-      bool p1 = this->ai_board & (1 << position);
-      bool p2 = this->enemy_board & (1 << position);
-      if (!p1 && !p2) {
-        Node *child = (Node *)this->arena->Alloc(sizeof(Node));
-        new (child) Node(this->arena);  // Placement new to initialize
-        child->ai_board = this->ai_board;
-        child->enemy_board = this->enemy_board;
-        child->parent = this;
-        // TODO: make move
-        this->children[this->child_count++] = child;
-      }
+  for(int pos = 0; pos < 9; pos++) {
+    bool p1 = this->ai_board & (1 << pos);
+    bool p2 = this->enemy_board & (1 << pos);
+
+    if (!p1 && !p2) {
+      Node n(this->arena, !this->is_ai_turn);
+      n.parent = this;
+      n.ai_board = this->ai_board;
+      n.enemy_board = this->enemy_board;
+
+      if(this->is_ai_turn) 
+        n.ai_board |= 1 << pos;
+      else
+        n.enemy_board |= 1 << pos;
+
+      this->arena->push_back(n);
+
+      assert(this->child_count < 9);
+      this->children[this->child_count++] = &this->arena->back();
     }
   }
 }
 
 void Node::SimulateAndPropagate() {
-  // TODO: implement
+  int eval = this->GetWinner();
+
+  uint16_t saved_ai_board = this->ai_board;
+  uint16_t saved_enemy_board = this->enemy_board;
+  bool saved_turn = this->is_ai_turn;
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
+  assert((saved_ai_board & saved_enemy_board) == 0);
+
+  while (!eval) {
+    std::vector<int> available_moves;
+    for (int pos = 0; pos < 9; pos++) {
+      bool p1 = this->ai_board & (1 << pos);
+      bool p2 = this->enemy_board & (1 << pos);
+      if (!p1 && !p2)
+        available_moves.push_back(pos);
+    }
+
+    if (available_moves.empty())
+      break;
+
+    std::uniform_int_distribution<> dis(0, available_moves.size() - 1);
+    int move = available_moves[dis(gen)];
+
+    if (this->is_ai_turn) {
+      this->ai_board |= 1 << move;
+    } else {
+      this->enemy_board |= 1 << move;
+    }
+
+    this->is_ai_turn = !this->is_ai_turn;
+    eval = this->GetWinner();
+
+    assert((this->ai_board & this->enemy_board) == 0);
+  }
+
+  this->ai_board = saved_ai_board;
+  this->enemy_board = saved_enemy_board;
+  this->is_ai_turn = saved_turn;
+
+  auto curr_node = this;
+  while (curr_node != nullptr) {
+    curr_node->visit_count++;
+    curr_node->eval += eval;
+    if (eval == 1) {
+      curr_node->win_count++;
+    }
+    curr_node = curr_node->parent;
+  }
 }
 
 Node *Node::CalculateBestMove(size_t iter_count) {
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
   for (size_t i = 0; i < iter_count; i++) {
     Node *leaf = this->FindBestLeafNode();
     leaf->CreateChildren();
 
     if (leaf->child_count > 0) {
-      std::random_device rd;
-      std::mt19937 gen(rd());
       std::uniform_int_distribution<> dis(0, leaf->child_count - 1);
-
-      Node *chosen_leaf = leaf->children[dis(gen)];
-
-      chosen_leaf->SimulateAndPropagate();
+      leaf = leaf->children[dis(gen)];
     }
-    else {
-      leaf->SimulateAndPropagate();
-    }
+    leaf->SimulateAndPropagate();
   }
 
-  int64_t best_eval = -1;
+  int64_t best_eval = INT64_MIN;
   Node *best_node;
 
   for (int i = 0; i < this->child_count; i++) {
@@ -94,13 +161,21 @@ Node *Node::CalculateBestMove(size_t iter_count) {
   return best_node;
 }
 
-bool Node::IsTerminal() {
-  // TODO: implement
-  return false;
+int Node::GetWinner() {
+  for (const uint16_t mask :
+      {0b000000111, 0b000111000, 0b111000000, 0b001001001, 0b010010010,
+      0b100100100, 0b100010001, 0b001010100}) {
+    if ((this->ai_board & mask) == mask) {
+      return 1;
+    } else if ((this->enemy_board & mask) == mask) {
+      return -1;
+    }
+  }
+  return 0;
 }
 
 double Node::GetUcbScore() {
-  auto parent = this->parent ? this->parent : this;
+  auto parent = this->parent != nullptr ? this->parent : this;
 
   if (this->visit_count == 0)
     return DBL_MAX;

@@ -1,68 +1,117 @@
-#include <cstdint>
+#include "node.hpp"
+#include <cassert>
+#include <cfloat>
 #include <iostream>
+#include <string>
 #include <cctype>
+#include <deque>
 
-void print_board(uint16_t ai_board, uint16_t enemy_board) {
-  std::cout << "  A B C\n";
-  for (int row = 0; row < 3; ++row) {
-    std::cout << row + 1 << " ";
-    for (int col = 0; col < 3; ++col) {
-      int position = row * 3 + col;
-      char mark = '.';
-      if (ai_board & (1 << position)) {
-        mark = 'X';
-      } else if (enemy_board & (1 << position)) {
-        mark = 'O';
-      }
-      std::cout << mark << " ";
-    }
-    std::cout << "\n";
+void print_board(uint16_t ai_board, uint16_t enemy_board, char ai, char player) {
+  char board[9] = {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '};
+
+  for (int i = 0; i < 9; i++) {
+    if (ai_board & (1 << i))
+      board[i] = ai;
+    else if (enemy_board & (1 << i))
+      board[i] = player;
   }
-}
 
-int coordinate_to_idx(char col, char row) {
-  return 3 * (row - '1') + (col - 'A');
+  std::cout << " A   B   C\n\n";
+  std::cout << " " << board[0] << " | " << board[1] << " | " << board[2] << "   1\n";
+  std::cout << "---|---|---\n";
+  std::cout << " " << board[3] << " | " << board[4] << " | " << board[5] << "   2\n";
+  std::cout << "---|---|---\n";
+  std::cout << " " << board[6] << " | " << board[7] << " | " << board[8] << "   3\n";
 }
 
 bool is_valid_coordinate(char col, char row) {
   return (col >= 'A' && col <= 'C') && (row >= '1' && row <= '3');
 }
 
+int coordinate_to_idx(char col, char row) {
+  return (col - 'A') + 3 * (row - '1');
+}
+
 int main(int argc, char **argv) {
+  char player;
+
+  for(;;) {
+    std::string selection;
+    std::cout << "Select your symbol (X/O): ";
+    std::cin >> selection;
+
+    if(selection.length() != 1) {
+      std::cout << "Invalid input format. Try again.\n";
+      continue;
+    }
+    player = std::toupper(selection[0]);
+
+    if(player != 'X' && player != 'O') {
+      std::cout << "Invalid selection. Try again.\n";
+      continue;
+    }
+
+    break;
+  }
+
+  char ai = player == 'O' ? 'X' : 'O';
+  bool is_ai_turn = ai == 'X';
+
+  std::deque<Node> arena;
+  Node root(&arena, is_ai_turn);
+  Node *curr_node = &root;
+
+  if(!is_ai_turn)
+    print_board(0, 0, ai, player);
+
+  curr_node->enemy_board = 0b101000000;
+
   while (true) {
-    // print_board(ai_board, enemy_board);
-
-    std::cout << "Enter your move (e.x., A1, B2): ";
-    std::string move;
-    std::cin >> move;
-
-    if (move.size() != 2) {
-      std::cout << "Invalid input format. Try again.\n";
-      continue;
+    if (curr_node->GetWinner()) {
+      std::cout << "Game Over! ";
+      if (curr_node->GetWinner() == 1)
+        std::cout << "AI wins!" << std::endl;
+      else
+        std::cout << "You win!" << std::endl;
+      break;
     }
 
-    char col = std::toupper(move[0]);
-    char row = move[1];
+    if (curr_node->is_ai_turn) {
+      curr_node = curr_node->CalculateBestMove(10000);
+      std::cout << "AI's move:" << std::endl;
+      print_board(curr_node->ai_board, curr_node->enemy_board, ai, player);
+    } 
+    else {
+      std::cout << "Enter your move (e.g., A1, B2): ";
+      std::string move;
+      std::cin >> move;
 
-    if (!std::isalpha(col) || !std::isdigit(row)) {
-      std::cout << "Invalid input format. Try again.\n";
-      continue;
+      if (move.size() != 2) {
+        std::cout << "Invalid input format. Try again.\n";
+        continue;
+      }
+
+      char col = std::toupper(move[0]);
+      char row = move[1];
+
+      if (!std::isalpha(col) || !std::isdigit(row) || !is_valid_coordinate(col, row)) {
+        std::cout << "Invalid input format. Try again.\n";
+        continue;
+      }
+
+      int idx = coordinate_to_idx(col, row);
+
+      if (curr_node->ai_board & (1 << idx) || curr_node->enemy_board & (1 << idx)) {
+        std::cout << "The position is already taken. Try again.\n";
+        continue;
+      }
+
+      curr_node = curr_node->SearchEnemyMove(idx);
+
+      assert(curr_node != nullptr);
+      std::cout << "Your move:" << std::endl;
+      print_board(curr_node->ai_board, curr_node->enemy_board, ai, player);
     }
-
-    if (!is_valid_coordinate(col, row)) {
-      std::cout << "Invalid coordinates. Try again.\n";
-      continue;
-    }
-
-    int idx = coordinate_to_idx(col, row);
-
-    /* if (ai_board & (1 << idx) || enemy_board & (1 << idx)) { */
-    /*   std::cout << "The position is already taken. Try again.\n"; */
-    /*   continue; */
-    /* } */
-    /**/
-    /* enemy_board |= (1 << idx); */
-    // TODO: MCTS makes move
   }
 
   return 0;

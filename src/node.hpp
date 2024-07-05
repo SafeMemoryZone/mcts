@@ -1,8 +1,8 @@
 #ifndef NODE_HPP
 #define NODE_HPP
-#include "arena.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 
 struct Node {
   int64_t eval;
@@ -12,12 +12,14 @@ struct Node {
   uint16_t ai_board;
   uint16_t enemy_board;
   uint8_t child_count;
-  Node* children[9];
-  Arena* arena;
+  Node *children[9];
+  std::deque<Node>* arena;
+  bool is_ai_turn;
 
-  Node(Arena *arena);
+  Node(std::deque<Node> *arena, bool is_ai_turn);
   Node *CalculateBestMove(size_t iter_count);
-  bool IsTerminal();
+  Node *SearchEnemyMove(int move);
+  int GetWinner();
 
 private:
   Node *GetBestChild();

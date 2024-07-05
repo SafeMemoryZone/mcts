@@ -1,2 +1,2 @@
 all:
-	clang++ -o mcts -fsanitize=undefined src/main.cc src/arena.cc src/node.cc
+	clang++ -o mcts -g -std=c++11 -fsanitize=undefined src/main.cc src/node.cc
