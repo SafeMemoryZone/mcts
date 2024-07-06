@@ -2,14 +2,12 @@
 #include <cassert>
 #include <cfloat>
 #include <cmath>
-#include <iostream>
 #include <random>
 #include <vector>
 
 Node::Node(std::deque<Node> *arena, bool is_ai_turn) {
   this->eval = 0;
   this->visit_count = 0;
-  this->win_count = 0;
   this->parent = nullptr;
   this->ai_board = 0;
   this->enemy_board = 0;
@@ -19,8 +17,9 @@ Node::Node(std::deque<Node> *arena, bool is_ai_turn) {
 }
 
 Node *Node::GetBestChild() {
-  double best_score = DBL_MIN;
-  Node* best_child;
+  double best_score = -DBL_MAX;
+  Node* best_child = nullptr;
+  assert(this->child_count > 0);
 
   for (auto i = 0; i < this->child_count; i++) {
     auto score = this->children[i]->GetUcbScore();
@@ -30,6 +29,7 @@ Node *Node::GetBestChild() {
     }
   }
 
+  assert(best_child != nullptr);
   return best_child;
 }
 
@@ -79,7 +79,7 @@ void Node::CreateChildren() {
   }
 }
 
-void Node::SimulateAndPropagate() {
+void Node::SimulateAndBackpropagate() {
   int eval = this->GetWinner();
 
   uint16_t saved_ai_board = this->ai_board;
@@ -93,6 +93,7 @@ void Node::SimulateAndPropagate() {
 
   while (!eval) {
     std::vector<int> available_moves;
+
     for (int pos = 0; pos < 9; pos++) {
       bool p1 = this->ai_board & (1 << pos);
       bool p2 = this->enemy_board & (1 << pos);
@@ -114,8 +115,6 @@ void Node::SimulateAndPropagate() {
 
     this->is_ai_turn = !this->is_ai_turn;
     eval = this->GetWinner();
-
-    assert((this->ai_board & this->enemy_board) == 0);
   }
 
   this->ai_board = saved_ai_board;
@@ -125,10 +124,7 @@ void Node::SimulateAndPropagate() {
   auto curr_node = this;
   while (curr_node != nullptr) {
     curr_node->visit_count++;
-    curr_node->eval += eval;
-    if (eval == 1) {
-      curr_node->win_count++;
-    }
+    curr_node->eval += curr_node->is_ai_turn ? -eval : eval;
     curr_node = curr_node->parent;
   }
 }
@@ -145,11 +141,11 @@ Node *Node::CalculateBestMove(size_t iter_count) {
       std::uniform_int_distribution<> dis(0, leaf->child_count - 1);
       leaf = leaf->children[dis(gen)];
     }
-    leaf->SimulateAndPropagate();
+    leaf->SimulateAndBackpropagate();
   }
 
   int64_t best_eval = INT64_MIN;
-  Node *best_node;
+  Node *best_node = nullptr;
 
   for (int i = 0; i < this->child_count; i++) {
     if (this->children[i]->eval > best_eval) {
@@ -158,6 +154,7 @@ Node *Node::CalculateBestMove(size_t iter_count) {
     }
   }
 
+  assert(best_node != nullptr);
   return best_node;
 }
 
@@ -182,7 +179,7 @@ double Node::GetUcbScore() {
 
   constexpr double c = 1.4;
 
-  double exploitation = (double)this->win_count / this->visit_count;
+  double exploitation = (double)this->eval / this->visit_count;
   double exploration = c * sqrt(log(parent->visit_count) / this->visit_count);
 
   return exploration + exploitation;

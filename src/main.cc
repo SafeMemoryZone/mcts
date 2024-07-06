@@ -64,21 +64,23 @@ int main(int argc, char **argv) {
   if(!is_ai_turn)
     print_board(0, 0, ai, player);
 
-  curr_node->enemy_board = 0b101000000;
-
   while (true) {
     if (curr_node->GetWinner()) {
       std::cout << "Game Over! ";
       if (curr_node->GetWinner() == 1)
-        std::cout << "AI wins!" << std::endl;
+        std::cout << "AI wins!\n";
       else
-        std::cout << "You win!" << std::endl;
+        std::cout << "You win!\n";
+      break;
+    }
+    else if((curr_node->ai_board | curr_node->enemy_board) == 0b111111111) {
+      std::cout << "Game Over! Tie!\n";
       break;
     }
 
     if (curr_node->is_ai_turn) {
-      curr_node = curr_node->CalculateBestMove(10000);
-      std::cout << "AI's move:" << std::endl;
+      curr_node = curr_node->CalculateBestMove(1000);
+      std::cout << "AI's move:\n";
       print_board(curr_node->ai_board, curr_node->enemy_board, ai, player);
     } 
     else {
@@ -109,7 +111,7 @@ int main(int argc, char **argv) {
       curr_node = curr_node->SearchEnemyMove(idx);
 
       assert(curr_node != nullptr);
-      std::cout << "Your move:" << std::endl;
+      std::cout << "Your move:\n";
       print_board(curr_node->ai_board, curr_node->enemy_board, ai, player);
     }
   }

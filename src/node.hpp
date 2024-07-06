@@ -7,7 +7,6 @@
 struct Node {
   int64_t eval;
   size_t visit_count;
-  size_t win_count;
   Node *parent;
   uint16_t ai_board;
   uint16_t enemy_board;
@@ -25,7 +24,7 @@ private:
   Node *GetBestChild();
   Node *FindBestLeafNode();
   void CreateChildren();
-  void SimulateAndPropagate();
+  void SimulateAndBackpropagate();
   double GetUcbScore();
 };
 #endif // NODE_HPP 
