@@ -21,10 +21,10 @@ struct Node {
   int GetWinner();
 
 private:
-  Node *GetBestChild();
+  Node *GetBestChild(double c);
   Node *FindBestLeafNode();
   void CreateChildren();
   void SimulateAndBackpropagate();
-  double GetUcbScore();
+  double GetUcbScore(double c);
 };
 #endif // NODE_HPP 

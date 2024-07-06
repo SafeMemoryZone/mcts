@@ -16,13 +16,13 @@ Node::Node(std::deque<Node> *arena, bool is_ai_turn) {
   this->is_ai_turn = is_ai_turn;
 }
 
-Node *Node::GetBestChild() {
+Node *Node::GetBestChild(double c) {
   double best_score = -DBL_MAX;
   Node* best_child = nullptr;
   assert(this->child_count > 0);
 
   for (auto i = 0; i < this->child_count; i++) {
-    auto score = this->children[i]->GetUcbScore();
+    auto score = this->children[i]->GetUcbScore(c);
     if (score > best_score) {
       best_score = score;
       best_child = this->children[i];
@@ -37,7 +37,7 @@ Node *Node::FindBestLeafNode() {
   if (this->child_count == 0)
     return this;
 
-  return this->GetBestChild()->FindBestLeafNode();
+  return this->GetBestChild(1.44)->FindBestLeafNode();
 }
 
 Node *Node::SearchEnemyMove(int move) {
@@ -144,18 +144,7 @@ Node *Node::CalculateBestMove(size_t iter_count) {
     leaf->SimulateAndBackpropagate();
   }
 
-  int64_t best_eval = INT64_MIN;
-  Node *best_node = nullptr;
-
-  for (int i = 0; i < this->child_count; i++) {
-    if (this->children[i]->eval > best_eval) {
-      best_eval = this->children[i]->eval;
-      best_node = this->children[i];
-    }
-  }
-
-  assert(best_node != nullptr);
-  return best_node;
+  return this->GetBestChild(0);
 }
 
 int Node::GetWinner() {
@@ -171,13 +160,11 @@ int Node::GetWinner() {
   return 0;
 }
 
-double Node::GetUcbScore() {
+double Node::GetUcbScore(double c) {
   auto parent = this->parent != nullptr ? this->parent : this;
 
   if (this->visit_count == 0)
     return DBL_MAX;
-
-  constexpr double c = 1.4;
 
   double exploitation = (double)this->eval / this->visit_count;
   double exploration = c * sqrt(log(parent->visit_count) / this->visit_count);
