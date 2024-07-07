@@ -6,8 +6,6 @@
 #include <cctype>
 #include <deque>
 
-#define DEBUG 0
-
 void print_board(uint16_t ai_board, uint16_t enemy_board, char ai, char player) {
   char board[9] = {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '};
 
@@ -33,18 +31,6 @@ bool is_valid_coordinate(char col, char row) {
 int coordinate_to_idx(char col, char row) {
   return (col - 'A') + 3 * (row - '1');
 }
-
-#if DEBUG
-size_t get_node_count(Node *root) {
-  size_t c = 1;
-
-  for(int i = 0; i < root->child_count; i++) {
-    c += get_node_count(root->children[i]);
-  }
-
-  return c;
-}
-#endif
 
 int main(int argc, char **argv) {
   char player;
@@ -88,7 +74,7 @@ int main(int argc, char **argv) {
       break;
     }
     else if((curr_node->ai_board | curr_node->enemy_board) == 0b111111111) {
-      std::cout << "Game Over! Tie!\n";
+      std::cout << "Game Over! Draw!\n";
       break;
     }
 
@@ -128,9 +114,6 @@ int main(int argc, char **argv) {
       std::cout << "Your move:\n";
       print_board(curr_node->ai_board, curr_node->enemy_board, ai, player);
     }
-#if DEBUG
-    std::cout << "Amount of nodes in tree: " << get_node_count(&root) << '\n';
-#endif
   }
 
   return 0;
