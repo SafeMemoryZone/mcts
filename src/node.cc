@@ -5,16 +5,8 @@
 #include <random>
 #include <vector>
 
-Node::Node(std::deque<Node> *arena, bool is_ai_turn) {
-  this->eval = 0;
-  this->visit_count = 0;
-  this->parent = nullptr;
-  this->ai_board = 0;
-  this->enemy_board = 0;
-  this->child_count = 0;
-  this->arena = arena;
-  this->is_ai_turn = is_ai_turn;
-}
+Node::Node(std::deque<Node> *arena, bool is_ai_turn) : eval(0), visit_count(0), parent(nullptr), ai_board(0), 
+  enemy_board(0), child_count(0), children{0}, arena(arena), is_ai_turn(is_ai_turn) {}
 
 Node *Node::GetBestChild(double c) {
   double best_score = -DBL_MAX;
@@ -80,7 +72,7 @@ void Node::CreateChildren() {
 }
 
 void Node::SimulateAndBackpropagate() {
-  int eval = this->GetWinner();
+  int result = this->GetWinner();
 
   uint16_t saved_ai_board = this->ai_board;
   uint16_t saved_enemy_board = this->enemy_board;
@@ -91,7 +83,7 @@ void Node::SimulateAndBackpropagate() {
 
   assert((saved_ai_board & saved_enemy_board) == 0);
 
-  while (!eval) {
+  while (!result) {
     std::vector<int> available_moves;
 
     for (int pos = 0; pos < 9; pos++) {
@@ -114,7 +106,7 @@ void Node::SimulateAndBackpropagate() {
     }
 
     this->is_ai_turn = !this->is_ai_turn;
-    eval = this->GetWinner();
+    result = this->GetWinner();
   }
 
   this->ai_board = saved_ai_board;
@@ -124,7 +116,7 @@ void Node::SimulateAndBackpropagate() {
   auto curr_node = this;
   while (curr_node != nullptr) {
     curr_node->visit_count++;
-    curr_node->eval += curr_node->is_ai_turn ? -eval : eval;
+    curr_node->eval += curr_node->is_ai_turn ? -result : result;
     curr_node = curr_node->parent;
   }
 }
@@ -161,13 +153,13 @@ int Node::GetWinner() {
 }
 
 double Node::GetUcbScore(double c) {
-  auto parent = this->parent != nullptr ? this->parent : this;
+  const Node* p = this->parent != nullptr ? this->parent : this;
 
   if (this->visit_count == 0)
     return DBL_MAX;
 
   double exploitation = (double)this->eval / this->visit_count;
-  double exploration = c * sqrt(log(parent->visit_count) / this->visit_count);
+  double exploration = c * sqrt(log(p->visit_count) / this->visit_count);
 
   return exploration + exploitation;
 }
